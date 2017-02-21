@@ -662,38 +662,43 @@ var ImgCache = {
         var fileTransfer = new Private.FileTransferWrapper(ImgCache.attributes.filesystem);
         fileTransfer.download(
             img_src,
-            filePath,
+            filePath + '.tmp',
             function (entry) {
-                entry.getMetadata(function (metadata) {
-                    if (metadata && ('size' in metadata)) {
-                        ImgCache.overridables.log('Cached file size: ' + metadata.size, LOG_LEVEL_INFO);
-                        Private.setCurrentSize(ImgCache.getCurrentSize() + parseInt(metadata.size, 10));
-                    } else {
-                        ImgCache.overridables.log('No metadata size property available', LOG_LEVEL_INFO);
-                    }
-                });
                 ImgCache.overridables.log('Download complete: ' + Helpers.EntryGetPath(entry), LOG_LEVEL_INFO);
+                entry.moveTo(ImgCache.attributes.dirEntry, Private.getCachedFileName(img_src), function (entry) {
+                    entry.getMetadata(function (metadata) {
+                        if (metadata && ('size' in metadata)) {
+                            ImgCache.overridables.log('Cached file size: ' + metadata.size, LOG_LEVEL_INFO);
+                            Private.setCurrentSize(ImgCache.getCurrentSize() + parseInt(metadata.size, 10));
+                        } else {
+                            ImgCache.overridables.log('No metadata size property available', LOG_LEVEL_INFO);
+                        }
+                    });
+                    ImgCache.overridables.log('Move file complete: ' + Helpers.EntryGetPath(entry), LOG_LEVEL_INFO);
 
-                // iOS: the file should not be backed up in iCloud
-                // new from cordova 1.8 only
-                if (entry.setMetadata) {
-                    entry.setMetadata(
-                        function () {
-                        /* success*/
-                            ImgCache.overridables.log('com.apple.MobileBackup metadata set', LOG_LEVEL_INFO);
-                        },
-                        function () {
-                        /* failure */
-                            ImgCache.overridables.log('com.apple.MobileBackup metadata could not be set', LOG_LEVEL_WARNING);
-                        },
-                        { 'com.apple.MobileBackup': 1 }
-                        // 1=NO backup oddly enough..
-                    );
-                }
+                    // iOS: the file should not be backed up in iCloud
+                    // new from cordova 1.8 only
+                    if (entry.setMetadata) {
+                        entry.setMetadata(
+                            function () {
+                            /* success*/
+                                ImgCache.overridables.log('com.apple.MobileBackup metadata set', LOG_LEVEL_INFO);
+                            },
+                            function () {
+                            /* failure */
+                                ImgCache.overridables.log('com.apple.MobileBackup metadata could not be set', LOG_LEVEL_WARNING);
+                            },
+                            { 'com.apple.MobileBackup': 1 }
+                            // 1=NO backup oddly enough..
+                        );
+                    }
 
-                if (success_callback) {
-                  success_callback(entry.toURL());
-                }
+                    if (success_callback) {
+                      success_callback(entry.toURL());
+                    }
+                }, function (err) {
+                    ImgCache.overridables.log('Failed to move file ' + JSON.stringify(err), LOG_LEVEL_ERROR);
+                });
             },
             function (error) {
                 if (error.source) { ImgCache.overridables.log('Download error source: ' + error.source, LOG_LEVEL_ERROR); }
